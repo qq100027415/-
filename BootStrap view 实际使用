@@ -1,0 +1,135 @@
+{
+                    field: "action",
+                    width: "15%",
+                    title: '<spring:message code="common.info.grid.column.operation"/>',
+                    align: 'center',
+                    valign: 'middle',
+                    formatter: function (value, row, index) {
+                        return [
+                            '<a href="#" class="allocation grid-link"><spring:message code="common.button.allocation"/></a>'
+                        ].join('');
+                    },
+                    events: {
+                        'click .allocation': function (e, value, row, index) {
+                            $.get("<c:url value='/platform/user/getAllModules.action'/>",
+                                function (result) {
+                                    var list = result.data;
+                                    $("#userId").html("<input type='hidden' value='" + row.id + "' id='myUserId'>");
+                                    $("#allocationTree").empty();
+                                    $.get("<c:url value='/platform/user/getModulesByUser.action'/>",
+                                        {userId : row.id},
+                                        function (result) {
+                                            var userList=result.data;
+                                            console.log(userList);
+                                            if (list.length > 0) {
+                                                var root = {
+                                                    text: "安佑集团",
+                                                    nodes: getTree(list,userList),
+                                                };
+                                                var array = [root];
+                                                $("#allocationTree").treeview({
+                                                    data: array,
+                                                    multiSelect: true,
+                                                    showTags: true,
+                                                    showCheckbox: true,
+                                                    onNodeChecked: function (event, data) {
+                                                        $('#allocationTree').treeview('selectNode', [data.nodeId, {silent: true}]);
+                                                        nodeChecked(data);
+                                                    },
+                                                    onNodeUnchecked: function (event, data) {
+                                                        $('#allocationTree').treeview('unselectNode', [data.nodeId, {silent: true}]);
+                                                        nodeUnchecked(data);
+                                                    },
+                                                    onNodeSelected: function (event, data) {
+                                                        $('#allocationTree').treeview('checkNode', [data.nodeId, {silent: true}]);
+                                                        nodeChecked(data);
+                                                    },
+                                                    onNodeUnselected: function (event, data) {
+                                                        $('#allocationTree').treeview('uncheckNode', [data.nodeId, {silent: true}]);
+                                                        nodeUnchecked(data);
+                                                    }
+                                                });
+                                            }
+                                            $("#module").modal("show");
+                                        })
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                //模块分配完毕向后端保存数据
+        $("#btnSave").click(function () {
+            var userId = $("#myUserId").val();
+            var list = $("#allocationTree").treeview('getSelected');
+            var ids = [];
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].type != 0) {
+                    ids.push(list[i].id);
+                }
+            }
+            $.get("<c:url value='/platform/user/bindUserModules.action'/>", {
+                userId: userId,
+                ids: ids
+            }, function () {
+                $("#module").map(function () {
+                    if (!$(this).is(":hidden")) {
+                        $(this).modal('hide');
+                    }
+                });
+            })
+        })
+        
+        function getTree(list,userList) {
+            var array = [];
+            for (var i = 0; i < list.length; i++) {
+                list[i].nodeId = list[i].id;
+                list[i].text = list[i].keyValue;
+                list[i].nodes = getTwiceTree(list[i].id, list[i].children,userList);
+                array.push(list[i]);
+            }
+            return array;
+        }
+
+        function getTwiceTree(id, list,userList) {
+            var array = [];
+            for (var j = 0; j < list.length; j++) {
+                list[j].state={};
+                if (list[j].type == id) {
+                    list[j].nodeId = list[j].id;
+                    list[j].text = list[j].keyValue;
+                    for(var i=0;i<userList.length;i++){
+                        if(list[j].id==userList[i].id){
+                            list[j].state.checked=true;
+                        }
+                    }
+                    array.push(list[j]);
+                }
+            }
+            console.log(array);
+            return array;
+        }
+
+
+        function nodeChecked(data) {
+//            console.log(data)
+            if ((data.nodeId == 0 || data.type == 0) && data.nodes && data.nodes.length != 0) {
+                var nodes = data.nodes;
+                for (var i = 0; i < nodes.length; i++) {
+                    $('#allocationTree').treeview('checkNode', [nodes[i].nodeId, {silent: true}]);
+                    $('#allocationTree').treeview('selectNode', [nodes[i].nodeId, {silent: true}]);
+                    nodeChecked(nodes[i]);
+                }
+            }
+        }
+
+        function nodeUnchecked(data) {
+            if ((data.nodeId == 0 || data.type == 0) && data.nodes && data.nodes.length != 0) {
+                var nodes = data.nodes;
+                for (var i = 0; i < nodes.length; i++) {
+                    $('#allocationTree').treeview('uncheckNode', [nodes[i].nodeId, {silent: true}]);
+                    $('#allocationTree').treeview('unselectNode', [nodes[i].nodeId, {silent: true}]);
+                    nodeUnchecked(nodes[i]);
+                }
+            }
+        }
