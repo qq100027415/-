@@ -100,6 +100,7 @@
                     list[j].text = list[j].keyValue;
                     for(var i=0;i<userList.length;i++){
                         if(list[j].id==userList[i].id){
+                            //使其初始化时checked为true
                             list[j].state.checked=true;
                         }
                     }
